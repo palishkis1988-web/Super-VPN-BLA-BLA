@@ -1,0 +1,28 @@
+name: build
+on: workflow_dispatch
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: actions/setup-go@v5
+        with: { go-version: stable }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: "8.7" }
+      - name: Unpack project
+        run: unzip -q AutoVPN.zip
+      - name: Build libbox
+        run: |
+          TAG=$(git ls-remote --tags --refs https://github.com/SagerNet/sing-box 'v1.11.*' | sed 's#.*/##' | grep -v -- '-' | sort -V | tail -1)
+          git clone --depth 1 --branch "$TAG" https://github.com/SagerNet/sing-box
+          cd sing-box
+          go run ./cmd/internal/build_libbox -target android
+          cp libbox.aar ../AutoVPN/app/libs/
+      - name: Build APK
+        run: cd AutoVPN && gradle assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: AutoVPN/app/build/outputs/apk/debug/app-debug.apk
